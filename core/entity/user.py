@@ -1,10 +1,11 @@
 
-from core.entity.game import Game
+from core.entity.slot_machine.game import Game
+from utils.database_connect import db
+
 class User:
     user_id = None
     game:Game = None
     game_code:str = ""
-    amount = 1000
 
     def __init__(self, user_id, game_code):
         self.user_id = user_id
@@ -13,8 +14,8 @@ class User:
 
 
     def check_bet_available(self,bet)->bool:
-        
-        return self.amount >= bet
+        result = db.check_user_bet_balance(bet=bet)
+        return result
     
     def call_api_update_result(self,bet,total_rewards):
         self.amount += (total_rewards - bet)
@@ -25,7 +26,7 @@ class User:
         self.game = Game(game_code=self.game_code)
     
     def play_game(self,bet)->dict:
-        data = None
+        data = {}
         if self.check_bet_available(bet=bet):
             if self.game:
                 data = self.game.play()

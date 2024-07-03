@@ -1,5 +1,11 @@
 {
-    "host": "192.168.120.30",
+    "host": "10.10.50.67",
     "port": 8080,
-    "secret_key": "your_secret_key"
+    "secret_key": "your_secret_key",
+    "db_host": "localhost",
+    "db_port": "3306",
+    "db_user": "data",
+    "db_password": "123456",
+    "db_database": "demo_slot",
+    "inactive_timeout":180
 }

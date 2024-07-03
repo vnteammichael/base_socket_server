@@ -1,48 +1,61 @@
+
+from utils.database_connect import db
 import random
-from utils.config import config
 
-class Game:
-    game_code = None
-    def __init__(self,game_code):
-        self.game_code = game_code
-        self.symbols_rewards = config.get_demo_symbol_reward() #read from database
-        self.symbols_rate = config.get_demo_symbol_rate() #read from database
+
+class BaseGame:
+    def __init__(self, code):
+        self.game_code = code
+        
+        self.symbols_rewards = {} #read from database
+        self.symbols_rate = {} #read from database
         self.grid = None
-        self.is_free_spin = False
         self.free_spin_nums = 0
+        self.free_spin_multi = 1
+        self.id_symbol_config_free_game = 5
+        self.id_symbol_config = 1
+        self.get_symbol_reward_from_db()
 
+    async def play(self,id_symbol_config):
+        self.id_symbol_config = id_symbol_config
+        self.get_symbol_config_from_db(self.id_symbol_config)
 
-    def play(self):
-        #check free game
-        if self.is_free_spin:
-            self.free_game_play()
-
-        #
-        #gen grid
         self.grid = self.gen_grid()
-        # self.grid = [['3', '5', 'wild'], ['5', '0', '7'], ['7', 'wild', '3'], ['3', 'wild', '0'], ['5', '4', '1']]
-        # self.grid =  [['4', '5', 'wild'],['0', 'wild', '0'],['wild', '6', '5'],['4', '4', '0'],['6', '5', '5']]
-        # print(self.grid)
-        self.print_grid()
+        # self.grid =  [['4', '5', 'scatter'],['0', 'scatter', '0'],['scatter', '3', '5'],['4', '4', '0'],['3', '5', '5']]
+        # self.grid =  [['wild', '4', '0'],['4', '4', '1'],['0', '1', '4'],['3', '4', '5'],['5', '1', '0']]
 
+        
+         
+        
         total_reward, reward_description, is_free_spin = self.calculate_rewards()
-        self.is_free_spin = is_free_spin
-        # print(f"Total reward: {total_reward}")
-        # print(f"Reward description: {reward_description}")
-        data = {}
-        data['result'] = self.grid
-        data['line_win'] = reward_description
-        data['total_reward'] = total_reward
-        data['is_free_game'] = is_free_spin
+        data = {
+            'result': self.grid,
+            'line_win': reward_description,
+            'total_reward': total_reward,
+            'is_free_game': is_free_spin,
+            'bonus_reward': 0,
+            'bonus': []
+        }
+        if is_free_spin:
+            data['bonus_reward'], data['bonus'] = await self.free_game_play()
         return data
     
-    def print_grid(self):
-
-        for i in range(3):
-            for j in range(5):
-                print(f"{self.grid[j][i]:4} ",end="")
-            print()
-
+    async def free_game_play(self):
+        self.get_symbol_config_from_db(self.id_symbol_config_free_game)
+        bonus_data = []
+        rewards = 0
+        while self.free_spin_nums > 0:
+            data = {}
+            self.grid = self.gen_grid()
+            reward, reward_description, is_free_game = self.calculate_rewards()
+            data['result'] = self.grid
+            data['reward'] = reward
+            data['line_win'] = reward_description
+            bonus_data.append(data)
+            rewards += reward
+            self.free_spin_nums -= 1
+        self.get_symbol_config_from_db(self.id_symbol_config)
+        return rewards, bonus_data
     
     def get_symbol_by_cell(self,cell,with_free_symbol = True) -> int:
         result = 0
@@ -59,9 +72,8 @@ class Game:
                 break
             
         return result
-
-
-    def gen_grid(self):
+    
+    def gen_grid(self, is_free_spin = False):
         # có thể thêm điều kiện để chọn ra bộ rate phù hợp
         grid = []
         for i in range(5):
@@ -89,24 +101,6 @@ class Game:
                 count +=1
         return count, is_wild
     
-    def free_game_play(self,data):
-        
-        self.free_spin_nums = data['num_spin']
-        self.free_spin_multi = data['multi']
-
-        rewards = 0
-        reward_descriptions = {}
-        count = 0
-        while count<self.free_spin_nums:
-            self.grid = self.gen_grid()
-            reward, reward_description = self.calculate_rewards()
-            rewards += reward
-            reward_descriptions[count] = reward_description
-            count += 1
-        
-
-        return rewards, reward_descriptions
-
     def calculate_rewards(self):
         total_reward = 0
         reward_description = {}
@@ -120,7 +114,7 @@ class Game:
                 matches[col_index],is_wild = self.count_symbol_in_col(symbol=symbol,col=col)
                 is_wild_valid = is_wild_valid & is_wild
 
-            if is_wild_valid:
+            if is_wild_valid and symbol != "wild":
                 continue
             consecutive = 0
             reward_multi = 1
@@ -133,12 +127,26 @@ class Game:
                         reward_description[symbol]['reward'] = reward_multi * rewards.get(consecutive, 0)
                         reward_description[symbol]['consecutive'] = consecutive
                         total_reward += reward_description[symbol]['reward']
+                    elif consecutive>=3 and symbol == "scatter":
+                        is_free_spin = True
+                        self.free_spin_nums += rewards.get(consecutive, 0)
+                        reward_description[symbol] = {}
+                        reward_description[symbol]['symbol'] = symbol
+                        reward_description[symbol]['reward_multi'] = reward_multi
+                        reward_description[symbol]['reward'] = rewards.get(consecutive, 0)
+                        reward_description[symbol]['consecutive'] = consecutive
                     break
                 else:
                     consecutive += 1
                     reward_multi *= match
             if consecutive == 5 and symbol == "scatter":
                 is_free_spin = True
+                self.free_spin_nums += rewards.get(consecutive, 0)
+                reward_description[symbol] = {}
+                reward_description[symbol]['symbol'] = symbol
+                reward_description[symbol]['reward_multi'] = reward_multi
+                reward_description[symbol]['reward'] = rewards.get(consecutive, 0)
+                reward_description[symbol]['consecutive'] = consecutive
             elif consecutive == 5:
                 reward_description[symbol] = {}
                 reward_description[symbol]['symbol'] = symbol
@@ -150,4 +158,20 @@ class Game:
                 
         return total_reward, reward_description, is_free_spin
     
+    def get_symbol_config_from_db(self, id:int):
+        temp = db.get_symbol_config(id)
+        self.symbols_rate = {}
+        for i in temp:
+            if i['symbol'] not in self.symbols_rate:
+                self.symbols_rate[i["symbol"]] = list(range(15))
+            self.symbols_rate[i["symbol"]][i['position']-1] = i['rate']
 
+    def get_symbol_reward_from_db(self):
+        temp = db.get_symbol_reward()
+        self.symbols_rewards = {}
+        for i in temp:
+            if i['symbol'] not in self.symbols_rewards:
+                self.symbols_rewards[i["symbol"]] = {}
+            self.symbols_rewards[i["symbol"]][i['symbols_per_line']] = i['reward_multiplier']
+
+    

@@ -7,7 +7,6 @@ from utils.config import config
 from core.base.observer_pattern import ClientHandler
 from core.handler.login_handler import LoginHandler
 from core.handler.spin_handler import SpinHandler
-from core.handler.init_info_handler import InitInfoHandler
 
 class GameServer:
     def __init__(self, host, port, timeout=600):
@@ -20,7 +19,6 @@ class GameServer:
 
         self.action_manager.register_handler(action_type=ActionType.LOGIN,handler=LoginHandler(self))
         self.action_manager.register_handler(action_type=ActionType.PLAY,handler=SpinHandler())
-        self.action_manager.register_handler(action_type=ActionType.INIT_INFO,handler=InitInfoHandler())
 
 
     async def serve(self):
