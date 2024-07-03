@@ -1,6 +1,7 @@
 {
     "host": "10.10.50.67",
     "port": 8080,
+    "timeout": 600,
     "secret_key": "your_secret_key",
     "db_host": "localhost",
     "db_port": "3306",

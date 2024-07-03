@@ -10,7 +10,7 @@ import time
 if __name__ == "__main__":
     HOST = config.get('host')
     PORT = config.get('port')
-    TIMEOUT = 180  # 60 seconds timeout
+    TIMEOUT = config.get('timeout')  # 60 seconds timeout
     server = GameServer(HOST, PORT, TIMEOUT)
     asyncio.run(server.start())
 
