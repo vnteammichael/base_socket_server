@@ -62,6 +62,7 @@ class SpinHandler(BaseHandler):
                                     v['reward'] = v['reward'] * (bet/30)
                         #call api plus reward
                         data['valid_amount'] = user_manager.update_user_balance(user_id=user_id,amount= data['total_reward'] + data['bonus_reward'])
+                        data['valid_amount'] -= data['bonus_reward']
                         user_manager.insert_user_history(user_id=user_id,game_id=1,bet=bet,data=data)
                         data['msg'] = ""
                     else:

@@ -24,7 +24,7 @@ class MariaDBConnector(metaclass=SingletonMeta):
         self.connect()
 
     def connect(self):
-        if self.conn is None:
+        if self.conn is None or  not self.conn.is_connected():
             try:
                 self.conn = mysql.connector.connect(
                     host=self.host,
